@@ -10,35 +10,8 @@
 #define pixelScale 4/res                    //OpenGL pixel scale
 #define GLSW       (SW*pixelScale)          //OpenGL window width
 #define GLSH       (SH*pixelScale)          //OpenGL window height
-
-
-//Textures
-#include "Textures/T_NUMBERS.h"
-#include "Textures/T_VIEW2D.h"
-#include "Textures/T_00.h"
-#include "Textures/T_01.h"
-#include "Textures/T_02.h"
-#include "Textures/T_03.h"
-#include "Textures/T_04.h"
-#include "Textures/T_05.h"
-#include "Textures/T_06.h"
-#include "Textures/T_07.h"
-#include "Textures/T_08.h"
-#include "Textures/T_09.h"
-#include "Textures/T_10.h"
-#include "Textures/T_11.h"
-#include "Textures/T_12.h"
-#include "Textures/T_13.h"
-#include "Textures/T_14.h"
-#include "Textures/T_15.h"
-#include "Textures/T_16.h"
-#include "Textures/T_17.h"
-#include "Textures/T_18.h"
-#include "Textures/T_19.h"
-int numText=19;                          //number of textures
-int numSect= 0;                          //number of sectors
-int numWall= 0;                          //number of walls
-
+#define numSect     4						//Number of sectors
+#define numWall     16						//Number of walls
 //------------------------------------------------------------------------------
 typedef struct 
 {
@@ -70,8 +43,6 @@ typedef struct
 	int x1, y1; //Bottom line point 1
 	int x2, y2; //Bottom line point 2
 	int c; //Wall color
-	int wt,u,v; //wall texture and u/v tile
-	int shade; //shade of the wall
 }walls; walls W[30];
 
 typedef struct
@@ -80,50 +51,10 @@ typedef struct
 	int z1, z2; //Height of bottom and top
 	int d;	//Add y distances to sort drawing order
 	int c1, c2; //Bottom and Top colors
-	int st,ss; //surface texture, surface scale 
 	int surf[SW]; //Hold surface points
 	int surface; //Surfaces to draw
 }sectors; sectors S[30];
-
-typedef struct 
-{
- int w,h;                             //texture width/height
- const char *name;                    //texture name
-}TextureMaps; TextureMaps Textures[64]; //increase for more textures
-
 //------------------------------------------------------------------------------
-
-void load()
-{
- FILE *fp = fopen("level.h","r");
- if(fp == NULL){ printf("Error opening level.h"); return;}
- int s,w;
-
- fscanf(fp,"%i",&numSect);   //number of sectors 
- for(s=0;s<numSect;s++)      //load all sectors
- {
-  fscanf(fp,"%i",&S[s].ws);  
-  fscanf(fp,"%i",&S[s].we); 
-  fscanf(fp,"%i",&S[s].z1);  
-  fscanf(fp,"%i",&S[s].z2); 
-  fscanf(fp,"%i",&S[s].st); 
-  fscanf(fp,"%i",&S[s].ss);  
- }
- fscanf(fp,"%i",&numWall);   //number of walls 
- for(s=0;s<numWall;s++)      //load all walls
- {
-  fscanf(fp,"%i",&W[s].x1);  
-  fscanf(fp,"%i",&W[s].y1); 
-  fscanf(fp,"%i",&W[s].x2);  
-  fscanf(fp,"%i",&W[s].y2); 
-  fscanf(fp,"%i",&W[s].wt);
-  fscanf(fp,"%i",&W[s].u); 
-  fscanf(fp,"%i",&W[s].v);  
-  fscanf(fp,"%i",&W[s].shade);  
- }
- fscanf(fp,"%i %i %i %i %i",&P.x,&P.y,&P.z, &P.a,&P.l); //player position, angle, look direction 
- fclose(fp); 
-}
 
 void pixel(int x,int y, int c)                  //draw a pixel at x/y with rgb
 {int rgb[3];
@@ -183,7 +114,7 @@ void clipBehindPlayer (int *x1, int *y1, int *z1, int x2, int y2, int z2)
 	
 }
 
-void drawWall (int x1, int x2, int b1, int b2, int t1, int t2, int c, int s, int w, int frontBack)
+void drawWall (int x1, int x2, int b1, int b2, int t1, int t2, int c, int s)
 {
 	int x, y;
 	
@@ -194,10 +125,10 @@ void drawWall (int x1, int x2, int b1, int b2, int t1, int t2, int c, int s, int
 	int xs = x1; //Hold initial x1 starting position
 	
 	//Clip X Value 
-	if (x1 < 0) { x1 = 0;} //Clip left
-	if (x2 < 0) { x2 = 0; } //Clip left
-	if (x1 > SW) { x1 = SW; } //Clip right
-	if (x2 > SW) { x2 = SW; } //Clip right
+	if (x1 < 1) { x1 = 1;} //Clip left
+	if (x2 < 1) { x2 = 1; } //Clip left
+	if (x1 > SW - 1) { x1 = SW - 1; } //Clip right
+	if (x2 > SW - 1) { x2 = SW - 1; } //Clip right
 	
 	//Draw x vertical lines
 	for (x = x1; x < x2; x++)
@@ -207,25 +138,17 @@ void drawWall (int x1, int x2, int b1, int b2, int t1, int t2, int c, int s, int
 		int y2 = dyt * (x - xs + 0.5)/dx + t1; //Y bottom point
 		
 		//Clip X Value 
-		if (y1 < 0) {y1 = 0;} //Clip y
-		if (y2 < 0) {y2 = 0;} //Clip y
-		if (y1 > SH) { y1 = SH;} //Clip y
-		if (y2 > SH) { y2 = SH;} //Clip y
+		if (y1 < 1) { y1 = 1;} //Clip y
+		if (y2 < 1) { y2 = 1; } //Clip y
+		if (y1 > SH - 1) { y1 = SH - 1; } //Clip y
+		if (y2 > SH - 1) { y2 = SH - 1; } //Clip y
 	
 		//Surface parameters
-		if (frontBack == 0)
-		{
-			if(S[s].surface == 1){S[s].surf[x] = y1;} //Bottom surface save top row
-			if(S[s].surface == 2){S[s].surf[x] = y2;} //Top surface save top row
-			for (y = y1; y < y2; y++) { pixel (x,y, c);} //Normal wall
-		} 
-		if (frontBack == 1)
-		{
-			if(S[s].surface == 1){y2 = S[s].surf[x];} 
-			if(S[s].surface == 2){y1 = S[s].surf[x];} 
-			for (y = y1; y < y2; y++) { pixel (x,y, 2);} //Surfaces
-		} 
-
+		if (S[s].surface == 1) {S[s].surf[x] = y1; continue;} //Save bottom points
+		if (S[s].surface == 2) {S[s].surf[x] = y2; continue;} //Save top points
+		if (S[s].surface == -1) {for (y = S[s].surf[x]; y < y1; y++){pixel(x,y,S[s].c1);};} //Bottom
+		if (S[s].surface == -2) {for (y = y2; y< S[s].surf[x]; y++){pixel (x,y,S[s].c2);};} //Top
+		for (y = y1; y < y2; y++) { pixel (x,y, c);} //Normal wall
 	}
 }
 
@@ -237,7 +160,7 @@ int dist (int x1, int y1, int x2, int y2)
 
 void draw3D()
 {
-	int x, s, w, frontBack, cycles, wx[4], wy[4], wz[4]; float CS = M.cos[P.a], SN = M.sin[P.a];
+	int s, w, loop, wx[4], wy[4], wz[4]; float CS = M.cos[P.a], SN = M.sin[P.a];
 	
 	//Use bubblesort algorithm to order sectors by distance
 	for (s = 0; s < numSect - 1; s++)
@@ -256,10 +179,10 @@ void draw3D()
 	for (s = 0; s < numSect; s++)
 	{
 		S[s].d = 0;
-		if (P.z < S[s].z1) {S[s].surface = 1; cycles = 2; for ( x = 0; x < SW; x++) {S[s].surf[x] = SH;}} //Bottom surface
-		else if (P.z > S[s].z2) {S[s].surface = 2; cycles = 2; for ( x = 0; x < SW; x++) {S[s].surf[x] = 0;}} //Top surface
-		else {S[s].surface = 0; cycles = 1;} //No surface
-		for (frontBack = 0; frontBack < cycles; frontBack++)
+		if (P.z < S[s].z1) {S[s].surface = 1;} //Bottom surface
+		else if (P.z > S[s].z2) {S[s].surface = 2;} //Top surface
+		else {S[s].surface = 0;} //No surface
+		for (loop = 0; loop < 2; loop++)
 		{
 			for ( w = S[s].ws; w < S[s].we; w++)
 			{
@@ -268,7 +191,7 @@ void draw3D()
 				int x2 = W[w].x2 - P.x, y2 = W[w].y2 - P.y;
 				
 				//Swap for surface
-				if (frontBack == 1) {int swp = x1; x1 = x2; x2 = swp; swp = y1; y1 = y2; y2 = swp;}
+				if (loop == 0) {int swp = x1; x1 = x2; x2 = swp; swp = y1; y1 = y2; y2 = swp;}
 				
 				//World X position
 				wx[0] = x1 * CS - y1 * SN;
@@ -287,8 +210,8 @@ void draw3D()
 				//World Z height
 				wz[0] = S[s].z1 - P.z + ((P.l * wy[0])/32.0);
 				wz[1] = S[s].z1 - P.z + ((P.l * wy[1])/32.0);
-				wz[2] = S[s].z2 - P.z + ((P.l * wy[0])/32.0);
-				wz[3] = S[s].z2 - P.z + ((P.l * wy[1])/32.0);
+				wz[2] = wz[0] + S[s].z2; //Top line has a new Z
+				wz[3] = wz[1] + S[s].z2;
 				
 				//Don't draw points behind the player
 				if (wy[0] < 1 && wy[1] < 1) { continue; } //Wall behind player, don't draw
@@ -313,9 +236,10 @@ void draw3D()
 				wx[2] = wx[2] * 200/wy[2] + SW2; wy[2] = wz[2] * 200/wy[2] + SH2;
 				wx[3] = wx[3] * 200/wy[3] + SW2; wy[3] = wz[3] * 200/wy[3] + SH2;
 				
-				drawWall(wx[0], wx[1], wy[0], wy[1], wy[2], wy[3], W[w].c, s, w, frontBack);
+				drawWall(wx[0], wx[1], wy[0], wy[1], wy[2], wy[3], W[w].c, s);
 			}
 			S[s].d /= (S[s].we - S[s].ws); //Find average sector distance
+			S[s].surface *= -1; //Flip to negative to draw surface
 			
 		}
 
@@ -341,25 +265,57 @@ void display()
 
 void KeysDown(unsigned char key,int x,int y)   
 { 
- if(key == 'w'){ K.w = 1;} 
- if(key == 's'){ K.s = 1;} 
- if(key == 'a'){ K.a = 1;} 
- if(key == 'd'){ K.d = 1;} 
- if(key == 'm'){ K.m = 1;} 
- if(key == ','){ K.sr = 1;} 
- if(key == '.'){ K.sl = 1;} 
- if (key == 13) {load();} //Enter key = load level
+ if(key=='w'==1){ K.w =1;} 
+ if(key=='s'==1){ K.s =1;} 
+ if(key=='a'==1){ K.a =1;} 
+ if(key=='d'==1){ K.d =1;} 
+ if(key=='m'==1){ K.m =1;} 
+ if(key==','==1){ K.sr=1;} 
+ if(key=='.'==1){ K.sl=1;} 
 }
 void KeysUp(unsigned char key,int x,int y)
 { 
- if(key == 'w'){ K.w = 0;}
- if(key == 's'){ K.s = 0;}
- if(key == 'a'){ K.a = 0;}
- if(key == 'd'){ K.d = 0;}
- if(key == 'm'){ K.m = 0;}
- if(key == ','){ K.sr = 0;} 
- if(key == '.'){ K.sl = 0;}
+ if(key=='w'==1){ K.w =0;}
+ if(key=='s'==1){ K.s =0;}
+ if(key=='a'==1){ K.a =0;}
+ if(key=='d'==1){ K.d =0;}
+ if(key=='m'==1){ K.m =0;}
+ if(key==','==1){ K.sr=0;} 
+ if(key=='.'==1){ K.sl=0;}
 }
+
+int loadSectors[] =
+{ 
+	 //Wall start, Wall end, z1 height, z2 height, bottom color, top color
+	 0,  4, 0, 40, 2, 3, //Sector 1
+	 4,  8, 0, 40, 4, 5, //Sector 2
+	 8, 12, 0, 40, 6, 7, //Sector 3
+	12, 16, 0, 40, 0, 1, //Sector 4	
+};
+
+int loadWalls[] = 
+{
+	//x1, y1, x2, y2, color
+	0,  0, 32,  0, 0,
+	32, 0, 32, 32, 1,
+	32, 32, 0, 32, 0,
+	0,  32, 0,  0, 1,
+	
+	64, 0,  96,  0, 2,
+	96, 0,  96, 32, 3,
+	96, 32, 64, 32, 2,
+	64, 32, 64,  0, 3,
+	
+	64, 64, 96, 64, 4,
+	96, 64, 96, 96, 5,
+	96, 96, 64, 96, 4,
+	64, 96, 64, 64, 5,
+	
+	0,  64, 32, 64, 6,
+	32, 64, 32, 96, 7,
+	32, 96, 0,  96, 6,
+	0,  96, 0,  64, 7,
+};
 
 void init()
 {
@@ -373,7 +329,31 @@ void init()
 	}
 	
 	//Init player
-	P.x = 70; P.y = -110; P.z = 20; P.a = 0; P.l = 0; //Init player variables   
+	P.x = 70; P.y = -110; P.z = 20; P.a = 0; P.l = 0; //Init player variables
+	
+	//Load sectors
+	int s, w, v1 = 0, v2 = 0;
+	for (s = 0; s < numSect; s++)
+	{
+		S[s].ws = loadSectors[v1 + 0]; //Wall start number
+		S[s].we = loadSectors[v1 + 1]; //Wall end number
+		S[s].z1 = loadSectors[v1 + 2]; //Sector bottom height
+		S[s].z2 = loadSectors[v1 + 3] - loadSectors [v1 + 2]; //Sector top height
+		S[s].c1 = loadSectors[v1 + 4]; //Sector top color
+		S[s].c2 = loadSectors[v1 + 5]; //Sector bottom color
+		v1 += 6;
+		for (w = S[s].ws; w < S[s].we; w++)
+		{
+			W[w].x1 = loadWalls[v2 + 0]; //Bottom x1
+			W[w].y1 = loadWalls[v2 + 1]; //Bottom y1
+			W[w].x2 = loadWalls[v2 + 2]; //Top x2
+			W[w].y2 = loadWalls[v2 + 3]; //Top y2
+			W[w].c = loadWalls[v2 + 4]; //Wall color
+			v2 += 5;
+		}
+	}
+	
+   
 }
 
 int main(int argc, char* argv[])
